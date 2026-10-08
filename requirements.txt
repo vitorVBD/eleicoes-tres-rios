@@ -1,0 +1,7 @@
+# Versões mínimas. O ambiente de desenvolvimento usou Streamlit 1.65 e Pandas 3.
+pandas>=2.2
+streamlit>=1.39
+streamlit-folium>=0.20
+folium>=0.16
+plotly>=5.22
+openpyxl>=3.1

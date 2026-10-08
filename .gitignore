@@ -1,0 +1,19 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.streamlit/secrets.toml
+
+# Arquivos oficiais do TSE são grandes e não devem ir para o git.
+data/raw/*
+!data/raw/.gitkeep
+
+# Banco e JSON são gerados pelo pipeline.
+data/processed/*
+!data/processed/.gitkeep
+*.tmp
+*.tmp.db
+*.log
+.DS_Store
