@@ -31,8 +31,16 @@ def criar_mapa(locais: pd.DataFrame, cores: dict[str, str]) -> folium.Map | None
         lider = _texto(getattr(linha, "lider_disputa", ""))
         if lider:
             chave = lider
+            nome_a = _texto(getattr(linha, "candidato_a", ""))
+            nome_b = _texto(getattr(linha, "candidato_b", ""))
+            votos = ""
+            if nome_a:
+                votos += f"{nome_a}: {fmt_int(getattr(linha, 'votos_a', None))}<br>"
+            if nome_b:
+                votos += f"{nome_b}: {fmt_int(getattr(linha, 'votos_b', None))}<br>"
             cabecalho = (
-                f"Na frente no 2º turno: {lider}<br>"
+                f"Na frente: {lider}<br>"
+                f"{votos}"
                 f"Margem da disputa: {fmt_pp(getattr(linha, 'margem_disputa_pp', None))}<br>"
                 f"Votos de outros candidatos: {fmt_int(getattr(linha, 'votos_outros', None))}<br>"
             )

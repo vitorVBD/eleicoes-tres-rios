@@ -20,6 +20,7 @@ from eleicoes.normalizacao import chave_texto_serie, formatar_bairros, formatar_
 MAPA_VOTOS = {
     "ano": ["ANO_ELEICAO", "AA_ELEICAO"],
     "turno": ["NR_TURNO"],
+    "municipio": ["NM_MUNICIPIO"],
     "zona": ["NR_ZONA"],
     "secao": ["NR_SECAO"],
     "cargo": ["DS_CARGO"],
@@ -31,6 +32,7 @@ MAPA_VOTOS = {
 
 MAPA_LOCAIS = {
     "ano": ["ANO_ELEICAO", "AA_ELEICAO"],
+    "municipio": ["NM_MUNICIPIO"],
     "zona": ["NR_ZONA"],
     "secao": ["NR_SECAO"],
     "local_votacao": ["NM_LOCAL_VOTACAO"],
@@ -43,6 +45,7 @@ MAPA_LOCAIS = {
 MAPA_ABSTENCAO = {
     "ano": ["ANO_ELEICAO", "AA_ELEICAO"],
     "turno": ["NR_TURNO"],
+    "municipio": ["NM_MUNICIPIO"],
     "zona": ["NR_ZONA"],
     "secao": ["NR_SECAO"],
     "qt_aptos": ["QT_APTOS"],
@@ -106,6 +109,13 @@ def para_float_serie(serie: pd.Series) -> pd.Series:
     texto = texto.where(~ainda_virgula, texto.str.replace(",", ".", regex=False))
     texto = texto.mask(texto.isin({"", "nan", "None", "NULL", "-", "."}), pd.NA)
     return pd.to_numeric(texto, errors="coerce")
+
+
+def _preencher_municipio(df: pd.DataFrame) -> pd.DataFrame:
+    nomes = formatar_nomes(df["municipio"]) if "municipio" in df.columns else pd.Series("", index=df.index)
+    vazio = nomes.fillna("").astype(str).str.strip().eq("")
+    df["municipio"] = nomes.mask(vazio, "Não informado")
+    return df
 
 
 def _preencher_ano_turno(df: pd.DataFrame, avisos: list[str], rotulo: str) -> pd.DataFrame:
@@ -180,6 +190,7 @@ def preparar_votos(bruto: pd.DataFrame, avisos: list[str]) -> pd.DataFrame:
         df = df.loc[~sem_cargo].copy()
 
     df = _preencher_ano_turno(df, avisos, "Votos")
+    df = _preencher_municipio(df)
     df["nr_votavel"] = _numero_votavel(df["nr_votavel"])
     df["nm_votavel"] = formatar_nomes(df["nm_votavel"])
     sem_nome = df["nm_votavel"].eq("")
@@ -201,7 +212,7 @@ def preparar_votos(bruto: pd.DataFrame, avisos: list[str]) -> pd.DataFrame:
 
     agrupado = (
         df.groupby(
-            ["ano", "turno", "cargo", "zona", "secao", "nr_votavel", "nm_votavel", "tipo"],
+            ["ano", "turno", "cargo", "municipio", "zona", "secao", "nr_votavel", "nm_votavel", "tipo"],
             as_index=False,
             dropna=False,
         )["qt_votos"]
@@ -241,6 +252,7 @@ def preparar_locais(bruto: pd.DataFrame, avisos: list[str]) -> pd.DataFrame:
         avisos.append(f"Locais: {int(sem_chave.sum())} linhas sem zona ou seção foram descartadas.")
         df = df.loc[~sem_chave].copy()
 
+    df = _preencher_municipio(df)
     df["bairro"] = formatar_bairros(df["bairro"])
     df["local_votacao"] = formatar_nomes(df["local_votacao"]).replace("", LOCAL_DESCONHECIDO)
     df["endereco"] = df["endereco"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
@@ -249,8 +261,8 @@ def preparar_locais(bruto: pd.DataFrame, avisos: list[str]) -> pd.DataFrame:
     df["_prioridade_bairro"] = df["bairro"].ne(BAIRRO_DESCONHECIDO).astype(int)
     df["_prioridade_coord"] = df["latitude"].notna().astype(int)
     df = df.sort_values(["_prioridade_bairro", "_prioridade_coord"])
-    df = df.drop_duplicates(["zona", "secao"], keep="last")
-    return df.loc[:, ["zona", "secao", "bairro", "local_votacao", "endereco", "latitude", "longitude"]].reset_index(drop=True)
+    df = df.drop_duplicates(["municipio", "zona", "secao"], keep="last")
+    return df.loc[:, ["municipio", "zona", "secao", "bairro", "local_votacao", "endereco", "latitude", "longitude"]].reset_index(drop=True)
 
 
 def _herdar_bairro_do_local(df: pd.DataFrame) -> pd.DataFrame:
@@ -261,29 +273,30 @@ def _herdar_bairro_do_local(df: pd.DataFrame) -> pd.DataFrame:
     """
     conhecidos = df.loc[
         df["bairro"].ne(BAIRRO_DESCONHECIDO) & df["local_votacao"].ne(LOCAL_DESCONHECIDO),
-        ["local_votacao", "bairro"],
+        ["municipio", "local_votacao", "bairro"],
     ].drop_duplicates()
     if conhecidos.empty:
         return df
-    contagem = conhecidos.groupby("local_votacao")["bairro"].nunique()
-    unicos = contagem[contagem.eq(1)].index
+    contagem = conhecidos.groupby(["municipio", "local_votacao"])["bairro"].nunique()
+    unicos = contagem[contagem.eq(1)].reset_index()[["municipio", "local_votacao"]]
     mapa = (
-        conhecidos.loc[conhecidos["local_votacao"].isin(unicos)]
-        .drop_duplicates("local_votacao")
-        .set_index("local_votacao")["bairro"]
+        conhecidos.merge(unicos, on=["municipio", "local_votacao"])
+        .drop_duplicates(["municipio", "local_votacao"])
+        .rename(columns={"bairro": "_bairro_herdado"})
     )
-    faltando = df["bairro"].eq(BAIRRO_DESCONHECIDO) & df["local_votacao"].isin(mapa.index)
-    if faltando.any():
-        df = df.copy()
-        df.loc[faltando, "bairro"] = df.loc[faltando, "local_votacao"].map(mapa)
-    return df
+    if mapa.empty:
+        return df
+    juntado = df.merge(mapa, on=["municipio", "local_votacao"], how="left")
+    faltando = juntado["bairro"].eq(BAIRRO_DESCONHECIDO) & juntado["_bairro_herdado"].notna()
+    juntado.loc[faltando, "bairro"] = juntado.loc[faltando, "_bairro_herdado"]
+    return juntado.drop(columns="_bairro_herdado")
 
 
 def preparar_abstencao(bruto: pd.DataFrame | None, avisos: list[str]) -> pd.DataFrame:
-    colunas = ["ano", "turno", "zona", "secao", "qt_aptos", "qt_comparecimento", "qt_abstencao"]
+    colunas = ["ano", "turno", "municipio", "zona", "secao", "qt_aptos", "qt_comparecimento", "qt_abstencao"]
     if bruto is None or bruto.empty:
         avisos.append(
-            "Abstenção indisponível: o arquivo de comparecimento não foi encontrado ou não tem Três Rios."
+            "Abstenção indisponível: o arquivo de comparecimento não foi encontrado ou não tem o recorte pedido."
         )
         return pd.DataFrame(columns=colunas)
 
@@ -299,10 +312,11 @@ def preparar_abstencao(bruto: pd.DataFrame | None, avisos: list[str]) -> pd.Data
         return pd.DataFrame(columns=colunas)
 
     df = _preencher_ano_turno(df, avisos, "Abstenção")
+    df = _preencher_municipio(df)
     for coluna in ("qt_aptos", "qt_comparecimento", "qt_abstencao"):
         df[coluna] = para_inteiro_serie(df[coluna])
 
-    agrupado = df.groupby(["ano", "turno", "zona", "secao"], as_index=False).agg(
+    agrupado = df.groupby(["ano", "turno", "municipio", "zona", "secao"], as_index=False).agg(
         qt_aptos_sum=("qt_aptos", "sum"),
         qt_aptos_max=("qt_aptos", "max"),
         qt_aptos_n=("qt_aptos", "nunique"),

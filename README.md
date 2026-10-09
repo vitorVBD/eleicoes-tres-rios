@@ -1,3 +1,15 @@
+# Inteligência eleitoral · cidades do Rio de Janeiro
+
+Para gerar os três PDFs de uma cidade (apuração, mapa e roteiro), abra o prompt nesta pasta e rode:
+
+```bat
+gerar.bat "Nova Iguaçu"
+```
+
+A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. `gerar.bat --listar` mostra os nomes aceitos. Os PDFs ficam em `data/processed/cidades/`.
+
+O painel abaixo continua o recorte de Três Rios.
+
 # Inteligência eleitoral · Três Rios (RJ)
 
 Painel local para a coordenação olhar, por bairro, quem venceu, por quantos pontos, quantos votos nominais cada candidatura teve e qual foi a abstenção. Os números saem dos arquivos abertos do Tribunal Superior Eleitoral. A aplicação não envia esses dados para lugar nenhum: o processamento acontece na sua máquina.
@@ -52,7 +64,7 @@ O cruzamento é feito pela chave `(NR_ZONA, NR_SECAO)`, depois de filtrar `NM_MU
 
 ## 1. Baixar os arquivos do TSE
 
-Portal: [dadosabertos.tse.jus.br](https://dadosabertos.tse.jus.br/). O recorte desta tela é a eleição **presidencial de 2026**, lida a partir do 1º turno para orientar o 2º.
+Portal: [dadosabertos.tse.jus.br](https://dadosabertos.tse.jus.br/). O recorte desta tela é a eleição **presidencial de 2026**.
 
 1. **Votação por seção para presidente** (arquivo nacional; o ZIP do Rio de Janeiro não traz esse cargo)
 

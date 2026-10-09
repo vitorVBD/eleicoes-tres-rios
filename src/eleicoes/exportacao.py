@@ -36,14 +36,14 @@ def _bairros(df: pd.DataFrame) -> pd.DataFrame:
         "Locais de votação": df["locais"],
     }
     if "lider_disputa" in df.columns:
-        dados["Na frente no 2º turno"] = df["lider_disputa"]
-        dados["Adversário no 2º turno"] = df["adversario_disputa"]
+        dados["Na frente"] = df["lider_disputa"]
+        dados["Adversário"] = df["adversario_disputa"]
         dados["Votos de quem está na frente"] = df["votos_lider_disputa"]
         dados["Votos do adversário"] = df["votos_adversario_disputa"]
         dados["Margem da disputa (p.p.)"] = df["margem_disputa_pp"]
         dados["Votos em aberto"] = df["votos_outros"]
         dados["Pode virar"] = _sim_nao(df["pode_virar"])
-        dados["Prioritário no 2º turno"] = _sim_nao(df["prioritario_2t"])
+        dados["Prioritário na disputa"] = _sim_nao(df["prioritario_2t"])
     return pd.DataFrame(dados)
 
 
@@ -83,7 +83,7 @@ def _locais(df: pd.DataFrame) -> pd.DataFrame:
             "Vencedor": df.apply(_rotulo_vencedor, axis=1),
             "Percentual do vencedor": df["percentual_vencedor"],
             "Margem (p.p.)": df["margem_pp"],
-            "Na frente no 2º turno": df["lider_disputa"] if "lider_disputa" in df.columns else "",
+            "Na frente": df["lider_disputa"] if "lider_disputa" in df.columns else "",
             "Margem da disputa (p.p.)": df["margem_disputa_pp"] if "margem_disputa_pp" in df.columns else None,
             "Votos em aberto": df["votos_outros"] if "votos_outros" in df.columns else None,
             "Votos válidos": df["votos_validos"],
@@ -108,7 +108,7 @@ def _leia_me(ano: int, turno: int, cargo: str, limiar: float, meta: dict) -> pd.
         ("Margem", "Diferença entre o 1º e o 2º, em pontos percentuais dos votos válidos."),
         ("Bairro prioritário", f"Margem menor que {limiar:g} pontos percentuais entre o 1º e o 2º do recorte."),
         (
-            "2º turno",
+            "Disputa",
             "Par de referência: os dois mais votados no país, quando o arquivo nacional foi processado. "
             "Em cada bairro, a margem da disputa usa só esses dois nomes.",
         ),
@@ -117,7 +117,7 @@ def _leia_me(ano: int, turno: int, cargo: str, limiar: float, meta: dict) -> pd.
             "Os votos nominais dos demais candidatos são suficientes para cobrir a diferença entre os dois do par.",
         ),
         (
-            "Prioritário no 2º turno",
+            "Prioritário na disputa",
             f"Margem da disputa abaixo de {limiar:g} pontos, ou bairro que ainda pode virar.",
         ),
         ("Abstenção", "Abstenções ÷ eleitores aptos das seções do bairro."),
@@ -145,8 +145,8 @@ def gerar_excel(bairros: pd.DataFrame, candidatos: pd.DataFrame, locais: pd.Data
         _leia_me(ano, turno, cargo, limiar, meta).to_excel(escritor, index=False, sheet_name="Leia-me")
         planilha_bairros = _bairros(bairros)
         planilha_bairros.to_excel(escritor, index=False, sheet_name="Bairros")
-        if "Prioritário no 2º turno" in planilha_bairros.columns:
-            prioritarios = planilha_bairros.loc[planilha_bairros["Prioritário no 2º turno"].eq("Sim")]
+        if "Prioritário na disputa" in planilha_bairros.columns:
+            prioritarios = planilha_bairros.loc[planilha_bairros["Prioritário na disputa"].eq("Sim")]
         else:
             prioritarios = planilha_bairros.loc[planilha_bairros["Prioritário"].eq("Sim")]
         prioritarios.to_excel(escritor, index=False, sheet_name="Prioritários")

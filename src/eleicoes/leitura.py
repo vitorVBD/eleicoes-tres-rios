@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from eleicoes.config import BLOCO_LEITURA, MUNICIPIO_CHAVE, UF
+from eleicoes.config import BLOCO_LEITURA, MUNICIPIO, MUNICIPIO_CHAVE, UF
 from eleicoes.erros import ErroPipeline
 from eleicoes.normalizacao import chave_texto, chave_texto_serie
 
@@ -262,13 +262,25 @@ def exigir_colunas(df: pd.DataFrame, obrigatorias: list[str], caminho: Path) -> 
         )
 
 
-def filtrar_tres_rios(bloco: pd.DataFrame) -> pd.DataFrame:
-    """Mantém Três Rios/RJ. A comparação ignora acento e espaços."""
+def filtrar_recorte(bloco: pd.DataFrame, municipio: str | None) -> pd.DataFrame:
+    """Mantém o Rio de Janeiro. Com município, fica só essa cidade.
+
+    A comparação ignora acento, maiúsculas e espaços repetidos.
+    ``municipio`` vazio mantém todas as cidades do estado.
+    """
     if "SG_UF" in bloco.columns:
         uf = chave_texto_serie(bloco["SG_UF"])
-        bloco = bloco.loc[uf.isin({"", UF})].copy()
-    municipio = chave_texto_serie(bloco["NM_MUNICIPIO"])
-    return bloco.loc[municipio.eq(MUNICIPIO_CHAVE)].copy()
+        if uf.ne("").any():
+            bloco = bloco.loc[uf.eq(UF)].copy()
+    if not municipio or "NM_MUNICIPIO" not in bloco.columns:
+        return bloco
+    nomes = chave_texto_serie(bloco["NM_MUNICIPIO"])
+    return bloco.loc[nomes.eq(chave_texto(municipio))].copy()
+
+
+def filtrar_tres_rios(bloco: pd.DataFrame) -> pd.DataFrame:
+    """Mantém Três Rios/RJ. A comparação ignora acento e espaços."""
+    return filtrar_recorte(bloco, MUNICIPIO)
 
 
 def enxugar(bloco: pd.DataFrame, desejadas: list[str]) -> pd.DataFrame:
@@ -295,7 +307,7 @@ def _somar_ranking_uf(bloco: pd.DataFrame, cargo: str, ranking: dict[str, int]) 
     """Soma votos nominais do cargo no bloco inteiro, antes de cortar o município.
 
     No arquivo nacional de presidente, essa soma é a do país: os dois primeiros
-    são o par de referência do segundo turno, e não só quem ficou na frente em Três Rios.
+    são o par de referência da disputa, e não só quem ficou na frente em Três Rios.
     """
     from eleicoes.normalizacao import formatar_nomes
 
@@ -328,8 +340,12 @@ def ler_filtrado(
     cargos: set[str] | None = None,
     ranking_uf: dict[str, int] | None = None,
     sigla: str | None = None,
+    municipio: str | None = MUNICIPIO,
 ) -> tuple[pd.DataFrame, dict]:
-    """Concatena os arquivos já reduzidos a Três Rios e às colunas usadas no cruzamento."""
+    """Concatena os arquivos já reduzidos ao recorte e às colunas usadas no cruzamento.
+
+    ``municipio`` padrão é Três Rios. ``None`` mantém todas as cidades do Rio.
+    """
     partes: list[pd.DataFrame] = []
     lidas = 0
     mantidas = 0
@@ -346,12 +362,12 @@ def ler_filtrado(
             if ranking_uf is not None and cargo_ranking is not None:
                 candidato = _filtrar_ano_cargo(bloco, ano, None)
                 _somar_ranking_uf(candidato, cargo_ranking, ranking_uf)
-            filtrado = _filtrar_ano_cargo(filtrar_tres_rios(bloco), ano, cargos)
+            filtrado = _filtrar_ano_cargo(filtrar_recorte(bloco, municipio), ano, cargos)
             mantidas += len(filtrado)
             if not filtrado.empty:
                 partes.append(enxugar(filtrado, colunas_uteis))
             logger.info(
-                "%s: %s linhas lidas neste bloco, %s de Três Rios",
+                "%s: %s linhas lidas neste bloco, %s no recorte",
                 caminho.name,
                 f"{len(bloco):,}".replace(",", "."),
                 f"{len(filtrado):,}".replace(",", "."),

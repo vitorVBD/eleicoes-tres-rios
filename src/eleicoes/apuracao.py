@@ -443,6 +443,10 @@ def _aplicar_disputa(
 
     if locais_mapa.empty or tabela.empty:
         return
+    locais_mapa["candidato_a"] = nome_a
+    locais_mapa["candidato_b"] = nome_b
+    locais_mapa["votos_a"] = 0
+    locais_mapa["votos_b"] = 0
     nominais_local = tabela.loc[tabela["tipo"].eq("nominal")]
     por_local = (
         nominais_local.groupby(["bairro", "local_votacao", "nm_votavel"])["qt_votos"].sum()
@@ -470,6 +474,8 @@ def _aplicar_disputa(
             lider = nome_a if votos_a > votos_b else nome_b
             margem = (abs(votos_a - votos_b) / validos * 100) if validos else None
         locais_mapa.at[indice, "lider_disputa"] = lider
+        locais_mapa.at[indice, "votos_a"] = votos_a
+        locais_mapa.at[indice, "votos_b"] = votos_b
         locais_mapa.at[indice, "margem_disputa_pp"] = margem
         locais_mapa.at[indice, "votos_outros"] = outros
         locais_mapa.at[indice, "pode_virar"] = outros > 0 and outros >= abs(votos_a - votos_b)

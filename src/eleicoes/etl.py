@@ -145,6 +145,7 @@ def executar_pipeline(
     limiar: float = LIMIAR_PRIORITARIO,
     ano: int | None = None,
     cargo: str | None = None,
+    todo_o_estado: bool = False,
 ) -> Path:
     """Processa os arquivos e devolve o caminho do SQLite gerado.
 
@@ -152,8 +153,10 @@ def executar_pipeline(
     esses filtros para continuar exercitando prefeito e vereador.
     """
     pasta_saida = destino or PASTA_PROCESSADO
-    banco = pasta_saida / "tres_rios.db"
+    banco = pasta_saida / ("rio.db" if todo_o_estado else "tres_rios.db")
     json_saida = pasta_saida / JSON_BAIRROS.name
+    municipio_filtro = None if todo_o_estado else MUNICIPIO
+    rotulo_recorte = "o Rio de Janeiro" if todo_o_estado else MUNICIPIO
     avisos: list[str] = []
     if usar_amostra:
         ano = None
@@ -191,6 +194,7 @@ def executar_pipeline(
         cargos=cargos,
         ranking_uf=ranking_uf if cargo else None,
         sigla="BR" if cargo == "PRESIDENTE" else None,
+        municipio=municipio_filtro,
     )
     if votos_brutos.empty:
         recorte = f" de {cargo}" if cargo else ""
@@ -202,8 +206,8 @@ def executar_pipeline(
                 "(arquivo nacional, só desse cargo)."
             )
         raise ErroPipeline(
-            f"Nenhuma linha de Três Rios{recorte}{periodo} na votação. "
-            "Confira se o município está como TRÊS RIOS."
+            f"Nenhuma linha de {rotulo_recorte}{recorte}{periodo} na votação. "
+            "Confira o nome do município e se os arquivos do TSE estão em data/raw."
             + dica
         )
 
@@ -211,10 +215,11 @@ def executar_pipeline(
         arquivos["locais"],
         ["NM_MUNICIPIO", "NR_ZONA", "NR_SECAO"],
         COLUNAS_LOCAIS,
+        municipio=municipio_filtro,
     )
     if locais_brutos.empty:
         raise ErroPipeline(
-            "Nenhuma linha de Três Rios no arquivo de locais de votação. "
+            f"Nenhuma linha de {rotulo_recorte} no arquivo de locais de votação. "
             "Sem esse cruzamento não há bairro."
         )
 
@@ -224,6 +229,7 @@ def executar_pipeline(
             ["NM_MUNICIPIO", "NR_ZONA", "NR_SECAO"],
             COLUNAS_ABSTENCAO,
             ano=ano,
+            municipio=municipio_filtro,
         )
     elif arquivos["detalhe"]:
         logger.info("Abstenção pelo detalhe da apuração: %s", ", ".join(c.name for c in arquivos["detalhe"]))
@@ -234,6 +240,7 @@ def executar_pipeline(
             ano=ano,
             cargos=cargos,
             sigla="BR" if cargo == "PRESIDENTE" else None,
+            municipio=municipio_filtro,
         )
         avisos.append(
             "Abstenção lida do detalhe da apuração por seção. "
@@ -258,7 +265,7 @@ def executar_pipeline(
     ]
     finalistas = sorted(ranking_uf.items(), key=lambda item: (-item[1], item[0]))
     meta = {
-        "municipio": MUNICIPIO,
+        "municipio": "RJ" if todo_o_estado else MUNICIPIO,
         "uf": UF,
         "origem": tipo_origem,
         "gerado_em": agora,
@@ -291,6 +298,10 @@ def executar_pipeline(
             conexao.close()
 
     _gravar_atomico(banco, gravar_banco)
+
+    if todo_o_estado:
+        logger.info("SQLite do estado: %s", banco)
+        return banco
 
     def gravar_json(temporario: Path) -> None:
         conexao = sqlite3_connect(banco)

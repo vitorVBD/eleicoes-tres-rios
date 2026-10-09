@@ -71,7 +71,7 @@ def _imprimir_resumo(banco: Path, limiar: float) -> None:
         )
         if visao.resumo.get("disputa_a") and visao.resumo.get("disputa_b"):
             print(
-                f"Par do 2º turno: {visao.resumo['disputa_a']} e {visao.resumo['disputa_b']}"
+                f"Disputa: {visao.resumo['disputa_a']} e {visao.resumo['disputa_b']}"
                 f" · diferença {fmt_pp(visao.resumo.get('margem_disputa_pp'))}"
                 f" · votos em aberto {visao.resumo.get('votos_outros', 0)}"
             )

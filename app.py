@@ -65,7 +65,7 @@ def main() -> None:
     )
     st.markdown(CSS, unsafe_allow_html=True)
     st.title("Presidente 2026 · Três Rios")
-    st.caption("Leitura do 1º turno para orientar o 2º turno e entender a cidade")
+    st.caption("Leitura estratégica dos votos por bairro")
 
     if not BANCO.exists():
         _tela_sem_dados()
@@ -190,7 +190,7 @@ def _barra_lateral(meta: dict, combinacoes: pd.DataFrame):
         value=float(LIMIAR_PRIORITARIO),
         step=0.5,
         format="%.1f p.p.",
-        help="No presidente, marca o bairro em que a diferença entre os dois nomes do 2º turno fica abaixo deste valor.",
+        help="Marca o bairro em que a diferença entre os dois nomes da disputa fica abaixo deste valor.",
     )
     ordem = st.sidebar.selectbox(
         "Ordenar bairros por",
@@ -234,7 +234,7 @@ def _kpis(visao, disputa: bool) -> None:
         coluna3.metric(
             "Votos em aberto",
             fmt_int(abertos),
-            help="Votos nominais de quem não está no par do 2º turno. É o que ainda pode mudar o bairro.",
+            help="Votos nominais de quem não está entre os dois nomes da disputa. É o que ainda pode mudar o bairro.",
         )
     else:
         coluna3.metric(
@@ -243,7 +243,7 @@ def _kpis(visao, disputa: bool) -> None:
             help="Abstenções divididas pelos eleitores aptos.",
         )
     coluna4.metric(
-        "Bairros para o 2º turno" if disputa else "Bairros prioritários",
+        "Bairros prioritários",
         fmt_int(prioritarios),
         help="Diferença apertada entre os dois nomes, ou votos dos demais suficientes para cobrir essa diferença.",
     )
@@ -268,14 +268,12 @@ def _banner_cidade(resumo: dict, turno: int, meta: dict) -> None:
         origem = meta.get("disputa_abrangencia") or "na cidade"
         origem = f"no {origem}" if origem in {"Brasil", "Rio de Janeiro"} else "na cidade"
         texto += (
-            f" O par de referência do 2º turno, os dois mais votados {origem}, é "
+            f" Os dois mais votados {origem} são "
             f"<strong>{nome_a}</strong> ({fmt_int(resumo.get('votos_disputa_a'))}) e "
             f"<strong>{nome_b}</strong> ({fmt_int(resumo.get('votos_disputa_b'))}), "
             f"com <strong>{fmt_pp(resumo.get('margem_disputa_pp'))}</strong> de diferença na cidade "
             f"e <strong>{fmt_int(resumo.get('votos_outros'))}</strong> votos nominais de outros candidatos em aberto."
         )
-        if int(turno) == 1:
-            texto += " O arquivo do TSE ainda não traz o 2º turno; esta tela lê o 1º."
     st.markdown(f"<div class='banner'>{texto}</div>", unsafe_allow_html=True)
 
 
@@ -337,8 +335,8 @@ def _aba_bairros(visao, ordem: str, somente_prioritarios: bool, limiar: float, r
             "% do vencedor": st.column_config.NumberColumn(format="%.1f"),
             "Margem (p.p.)": st.column_config.NumberColumn(format="%.1f"),
             "Margem da disputa (p.p.)": st.column_config.NumberColumn(format="%.1f"),
-            "Votos na frente": st.column_config.NumberColumn(format="localized"),
-            "Votos do adversário": st.column_config.NumberColumn(format="localized"),
+            "Votos no Lula": st.column_config.NumberColumn(format="localized"),
+            "Votos no Flávio": st.column_config.NumberColumn(format="localized"),
             "Votos em aberto": st.column_config.NumberColumn(format="localized"),
             "Votos válidos": st.column_config.NumberColumn(format="localized"),
             "Abstenção (%)": st.column_config.NumberColumn(format="%.1f"),
@@ -366,15 +364,49 @@ def _ordenar(df: pd.DataFrame, ordem: str, disputa: bool = False) -> pd.DataFram
     return df.sort_values(["votos_validos", "bairro"], ascending=[False, True])
 
 
+def _rotulo_votos(nome: str) -> str:
+    chave = chave_texto(nome)
+    if "LUIZ INACIO" in chave or "LULA" in chave.split():
+        return "Votos no Lula"
+    if "FLAVIO" in chave and "BOLSONARO" in chave:
+        return "Votos no Flávio"
+    return f"Votos em {nome}"
+
+
+def _nomes_disputa(df: pd.DataFrame) -> list[str]:
+    nomes: list[str] = []
+    for coluna in ("lider_disputa", "adversario_disputa"):
+        for nome in df[coluna].fillna("").astype(str):
+            if nome and nome != "Empate" and nome not in nomes:
+                nomes.append(nome)
+
+    def ordem(nome: str) -> tuple[int, str]:
+        rotulo = _rotulo_votos(nome)
+        if rotulo == "Votos no Lula":
+            return (0, nome)
+        if rotulo == "Votos no Flávio":
+            return (1, nome)
+        return (2, nome)
+
+    return sorted(nomes, key=ordem)
+
+
+def _votos_de(df: pd.DataFrame, nome: str) -> pd.Series:
+    lider = df["lider_disputa"].fillna("").astype(str)
+    adversario = df["adversario_disputa"].fillna("").astype(str)
+    votos = pd.Series(0, index=df.index, dtype="int64")
+    votos = votos.mask(lider.eq(nome), df["votos_lider_disputa"])
+    votos = votos.mask(adversario.eq(nome), df["votos_adversario_disputa"])
+    return votos.mask(lider.eq("Empate"), df["votos_lider_disputa"])
+
+
 def _tabela(df: pd.DataFrame) -> pd.DataFrame:
     if "lider_disputa" in df.columns and df["lider_disputa"].fillna("").astype(str).str.len().gt(0).any():
-        return pd.DataFrame(
+        colunas: dict[str, pd.Series] = {"Bairro": df["bairro"]}
+        for nome in _nomes_disputa(df):
+            colunas[_rotulo_votos(nome)] = _votos_de(df, nome)
+        colunas.update(
             {
-                "Bairro": df["bairro"],
-                "Na frente": df["lider_disputa"],
-                "Votos na frente": df["votos_lider_disputa"],
-                "Adversário": df["adversario_disputa"].replace("", "—"),
-                "Votos do adversário": df["votos_adversario_disputa"],
                 "Margem da disputa (p.p.)": df["margem_disputa_pp"],
                 "Votos em aberto": df["votos_outros"],
                 "Pode virar": df["pode_virar"].map(lambda valor: "Sim" if valor else "Não"),
@@ -386,6 +418,7 @@ def _tabela(df: pd.DataFrame) -> pd.DataFrame:
                 ),
             }
         )
+        return pd.DataFrame(colunas)
     return pd.DataFrame(
         {
             "Bairro": df["bairro"],
@@ -403,7 +436,7 @@ def _tabela(df: pd.DataFrame) -> pd.DataFrame:
 def _cards_prioritarios(bairros: pd.DataFrame, limiar: float, disputa: bool) -> None:
     if disputa:
         prioritarios = bairros.loc[bairros["prioritario_2t"]].sort_values(["margem_disputa_pp", "bairro"], na_position="last")
-        st.subheader("Onde o 2º turno se decide")
+        st.subheader("Onde a disputa se decide")
         st.caption(
             f"Margem abaixo de {limiar:g} pontos entre os dois nomes, "
             "ou votos dos demais candidatos suficientes para cobrir a diferença."
@@ -438,7 +471,7 @@ def _detalhe_bairro(linha: pd.Series, candidatos: pd.DataFrame, bairros: pd.Data
     vencedor = f"Empate entre {linha['empate_entre']}" if linha["empate"] else linha["vencedor"]
     c1, c2, c3, c4 = st.columns(4)
     if disputa and linha.get("lider_disputa"):
-        c1.metric("Na frente no 2º turno", linha["lider_disputa"])
+        c1.metric("Na frente", linha["lider_disputa"])
         c2.metric("Margem da disputa", fmt_pp(linha["margem_disputa_pp"]))
         c3.metric("Votos em aberto", fmt_int(linha["votos_outros"]))
         c4.metric("Pode virar", "Sim" if linha["pode_virar"] else "Não")
@@ -492,7 +525,7 @@ def _aba_mapa(visao, disputa: bool) -> None:
     st.subheader("Locais de votação")
     if disputa:
         st.caption(
-            "Cada ponto é uma escola. A cor é quem está na frente, naquele local, entre os dois nomes do 2º turno. "
+            "Cada ponto é uma escola. A cor é quem está na frente, naquele local, entre os dois nomes da disputa. "
             "O mapa de fundo precisa de internet."
         )
     else:
@@ -526,8 +559,8 @@ def _aba_leitura(limiar: float, disputa: bool) -> None:
     trecho_disputa = ""
     if disputa:
         trecho_disputa = f"""
-**Par do 2º turno** são os dois mais votados para presidente no Brasil, somados a partir do arquivo nacional do TSE.
-Se um terceiro nome ganhou o bairro no 1º turno, a coluna "Na frente" continua comparando só os dois do par.
+**Disputa** compara os dois mais votados para presidente no Brasil, somados a partir do arquivo nacional do TSE.
+Se um terceiro nome ganhou o bairro, a coluna "Na frente" continua comparando só esses dois nomes.
 
 **Margem da disputa** é a diferença entre esses dois nomes, em pontos percentuais dos votos válidos do bairro.
 
@@ -535,7 +568,7 @@ Se um terceiro nome ganhou o bairro no 1º turno, a coluna "Na frente" continua 
 
 **Pode virar** significa que esses votos em aberto são suficientes para, no mínimo, empatar a diferença do bairro.
 
-**Bairro para o 2º turno** é aquele com margem da disputa abaixo de **{limiar:g} pontos percentuais**, ou que ainda pode virar.
+**Bairro prioritário** é aquele com margem da disputa abaixo de **{limiar:g} pontos percentuais**, ou que ainda pode virar.
 """
     st.markdown(
         f"""

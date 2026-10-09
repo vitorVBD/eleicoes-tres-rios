@@ -15,6 +15,7 @@ CREATE TABLE meta (
 );
 
 CREATE TABLE locais (
+    municipio TEXT NOT NULL,
     zona TEXT NOT NULL,
     secao TEXT NOT NULL,
     bairro TEXT NOT NULL,
@@ -22,13 +23,14 @@ CREATE TABLE locais (
     endereco TEXT,
     latitude REAL,
     longitude REAL,
-    PRIMARY KEY (zona, secao)
+    PRIMARY KEY (municipio, zona, secao)
 );
 
 CREATE TABLE votos (
     ano INTEGER NOT NULL,
     turno INTEGER NOT NULL,
     cargo TEXT NOT NULL,
+    municipio TEXT NOT NULL,
     zona TEXT NOT NULL,
     secao TEXT NOT NULL,
     nr_votavel TEXT,
@@ -40,15 +42,16 @@ CREATE TABLE votos (
 CREATE TABLE abstencao (
     ano INTEGER NOT NULL,
     turno INTEGER NOT NULL,
+    municipio TEXT NOT NULL,
     zona TEXT NOT NULL,
     secao TEXT NOT NULL,
     qt_aptos INTEGER,
     qt_comparecimento INTEGER,
     qt_abstencao INTEGER,
-    PRIMARY KEY (ano, turno, zona, secao)
+    PRIMARY KEY (ano, turno, municipio, zona, secao)
 );
 
-CREATE INDEX idx_votos_recorte ON votos (ano, turno, cargo);
+CREATE INDEX idx_votos_recorte ON votos (municipio, ano, turno, cargo);
 CREATE INDEX idx_abstencao_recorte ON abstencao (ano, turno);
 """
 
