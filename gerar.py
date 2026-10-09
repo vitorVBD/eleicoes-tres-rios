@@ -80,6 +80,16 @@ def _pasta(nome: str) -> Path:
     return pasta
 
 
+def listar_cidades() -> list[str]:
+    if not BANCO_ESTADO.exists():
+        return []
+    conexao = conectar(BANCO_ESTADO)
+    try:
+        return [nome for nome, _secoes in _listar(conexao)]
+    finally:
+        conexao.close()
+
+
 def _imprimir(pares: list[tuple[str, int]]) -> None:
     print(f"{len(pares)} municípios do Rio de Janeiro:")
     for nome, secoes in pares:
@@ -98,30 +108,58 @@ def _abrir_pasta(pasta: Path) -> None:
         return
 
 
+def _escrever_pdfs(cidade: str) -> list[tuple[str, Path]]:
+    pasta = _pasta(cidade)
+    return [
+        (
+            "Apuração",
+            gerar_relatorio(
+                pasta / "eleicao_presidencial_2026.pdf",
+                BANCO_ESTADO,
+                municipio=cidade,
+                nome_cidade=cidade,
+            ),
+        ),
+        (
+            "Roteiro",
+            gerar_plano(
+                pasta / "plano_panfletagem.pdf",
+                BANCO_ESTADO,
+                municipio=cidade,
+                cidade=cidade,
+            ),
+        ),
+        (
+            "Mapa",
+            gerar_mapa(
+                pasta / "mapa.pdf",
+                BANCO_ESTADO,
+                municipio=cidade,
+                cidade=cidade,
+            ),
+        ),
+    ]
+
+
+def gerar_pdfs(cidade: str) -> list[tuple[str, str, bytes]]:
+    """Gera os três PDFs e devolve o rótulo, o nome do arquivo e o conteúdo."""
+    pasta = _pasta(cidade)
+    nomes = {
+        "Apuração": f"{pasta.name}-apuracao.pdf",
+        "Roteiro": f"{pasta.name}-roteiro.pdf",
+        "Mapa": f"{pasta.name}-mapa.pdf",
+    }
+    return [
+        (rotulo, nomes[rotulo], caminho.read_bytes())
+        for rotulo, caminho in _escrever_pdfs(cidade)
+    ]
+
+
 def _gerar_cidade(cidade: str) -> Path:
     pasta = _pasta(cidade)
     print(f"Gerando os PDFs de {cidade}...")
-    eleicao = gerar_relatorio(
-        pasta / "eleicao_presidencial_2026.pdf",
-        BANCO_ESTADO,
-        municipio=cidade,
-        nome_cidade=cidade,
-    )
-    print(f"Apuração: {eleicao}")
-    roteiro = gerar_plano(
-        pasta / "plano_panfletagem.pdf",
-        BANCO_ESTADO,
-        municipio=cidade,
-        cidade=cidade,
-    )
-    print(f"Roteiro: {roteiro}")
-    mapa = gerar_mapa(
-        pasta / "mapa.pdf",
-        BANCO_ESTADO,
-        municipio=cidade,
-        cidade=cidade,
-    )
-    print(f"Mapa: {mapa}")
+    for rotulo, caminho in _escrever_pdfs(cidade):
+        print(f"{rotulo}: {caminho}")
     print()
     print("Pronto. Os três PDFs estão nesta pasta:")
     print(pasta)

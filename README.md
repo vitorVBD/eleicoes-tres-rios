@@ -6,6 +6,8 @@ No Linux, se o dois cliques abrir o arquivo em vez de rodar, abra o terminal nes
 
 A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. Os PDFs ficam em `data/processed/cidades/`.
 
+A página para divulgar no grupo é `cidades.py`. No Streamlit Community Cloud, o Main file path é `cidades.py`.
+
 O painel abaixo continua o recorte de Três Rios.
 
 # Inteligência eleitoral · Três Rios (RJ)

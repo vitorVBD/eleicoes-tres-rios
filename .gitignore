@@ -11,8 +11,10 @@ data/raw/votacao_secao_2026_BR.zip
 data/raw/eleitorado_local_votacao_2026.zip
 
 # Banco e JSON são gerados pelo pipeline.
+# rio.db entra no Git para o site não reler os arquivos do TSE.
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/rio.db
 *.tmp
 *.tmp.db
 *.log
