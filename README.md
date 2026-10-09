@@ -3,10 +3,10 @@
 Para gerar os três PDFs de uma cidade (apuração, mapa e roteiro), abra o prompt nesta pasta e rode:
 
 ```bat
-gerar.bat "Nova Iguaçu"
+.\gerar.bat "Nova Iguaçu"
 ```
 
-A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. `gerar.bat --listar` mostra os nomes aceitos. Os PDFs ficam em `data/processed/cidades/`.
+A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. `.\gerar.bat --listar` mostra os nomes aceitos. Os PDFs ficam em `data/processed/cidades/`.
 
 O painel abaixo continua o recorte de Três Rios.
 

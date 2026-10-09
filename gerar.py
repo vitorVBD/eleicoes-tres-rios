@@ -98,7 +98,7 @@ def main() -> int:
                 print(f"  {nome} ({secoes} seções)")
             if not args.cidade and not args.listar:
                 print()
-                print('Para gerar os PDFs: gerar.bat "Nova Iguacu"')
+                print('Para gerar os PDFs: .\\gerar.bat "Nova Iguacu"')
             return 0
         cidade = _resolver(" ".join(args.cidade), nomes)
         pasta = _pasta(cidade)
