@@ -1,12 +1,10 @@
 # Inteligência eleitoral · cidades do Rio de Janeiro
 
-Para gerar os três PDFs de uma cidade (apuração, mapa e roteiro), abra o prompt nesta pasta e rode:
+Para gerar os três PDFs de uma cidade (apuração, mapa e roteiro), dê dois cliques em `gerar.bat`. O arquivo vale no Windows e no Linux. Ele prepara o programa na primeira vez, pergunta o nome da cidade e abre a pasta dos PDFs.
 
-```bat
-.\gerar.bat "Nova Iguaçu"
-```
+No Linux, se o dois cliques abrir o arquivo em vez de rodar, abra o terminal nesta pasta e rode `bash gerar.bat`.
 
-A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. `.\gerar.bat --listar` mostra os nomes aceitos. Os PDFs ficam em `data/processed/cidades/`.
+A primeira vez lê os arquivos do TSE de todo o estado e pode levar vários minutos. As cidades seguintes saem rápido. Os PDFs ficam em `data/processed/cidades/`.
 
 O painel abaixo continua o recorte de Três Rios.
 
@@ -62,9 +60,11 @@ eleicoes-tres-rios/
 
 O cruzamento é feito pela chave `(NR_ZONA, NR_SECAO)`, depois de filtrar `NM_MUNICIPIO` para Três Rios. A interface lê o SQLite e não reabre os arquivos grandes a cada clique. O JSON `data/processed/tres_rios_dados_bairros.json` é o retrato agregado, útil para outras ferramentas.
 
-## 1. Baixar os arquivos do TSE
+## 1. Arquivos do TSE
 
-Portal: [dadosabertos.tse.jus.br](https://dadosabertos.tse.jus.br/). O recorte desta tela é a eleição **presidencial de 2026**.
+A pasta `data/raw` já traz o recorte de 2026 que o programa usa: a votação presidencial do Rio de Janeiro, o eleitorado do estado e o detalhe da apuração de presidente. Os pacotes nacionais completos passam de 100 MB e o GitHub recusa esse tamanho, por isso não entram no repositório.
+
+Portal de origem: [dadosabertos.tse.jus.br](https://dadosabertos.tse.jus.br/). O recorte desta tela é a eleição **presidencial de 2026**.
 
 1. **Votação por seção para presidente** (arquivo nacional; o ZIP do Rio de Janeiro não traz esse cargo)
 

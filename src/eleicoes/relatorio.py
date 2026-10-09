@@ -18,6 +18,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 import pandas as pd
 from reportlab.lib.colors import HexColor, white
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -37,6 +38,7 @@ from reportlab.platypus import (
 )
 
 from eleicoes.config import ANO_ELEICAO, BANCO, CARGO_ELEICAO, PASTA_PROCESSADO
+from eleicoes.erros import ErroPipeline
 
 ANO = ANO_ELEICAO
 TURNO = 1
@@ -122,13 +124,47 @@ class Fatia:
         return self.lula + self.flavio + self.renan + self.caiado + self.cury + self.outros
 
 
+def _pares_de_fonte() -> list[tuple[Path, Path]]:
+    return [
+        (Path(r"C:\Windows\Fonts\arial.ttf"), Path(r"C:\Windows\Fonts\arialbd.ttf")),
+        (
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"),
+        ),
+        (Path("/Library/Fonts/Arial.ttf"), Path("/Library/Fonts/Arial Bold.ttf")),
+        (
+            Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
+        ),
+    ]
+
+
 def _fonte() -> str:
-    regular = Path(r"C:\Windows\Fonts\arial.ttf")
-    negrito = Path(r"C:\Windows\Fonts\arialbd.ttf")
     if "Relatorio" not in pdfmetrics.getRegisteredFontNames():
+        escolhida = next((par for par in _pares_de_fonte() if par[0].is_file() and par[1].is_file()), None)
+        if escolhida is None:
+            raise ErroPipeline(
+                "Não encontrei uma fonte para montar o PDF. "
+                "No Ubuntu, instale com: sudo apt install fonts-liberation"
+            )
+        regular, negrito = escolhida
         pdfmetrics.registerFont(TTFont("Relatorio", str(regular)))
         pdfmetrics.registerFont(TTFont("Relatorio-Bold", str(negrito)))
-    plt.rcParams["font.family"] = "Arial"
+        for caminho in (regular, negrito):
+            font_manager.fontManager.addfont(str(caminho))
+        plt.rcParams["font.family"] = font_manager.FontProperties(fname=str(regular)).get_name()
     return "Relatorio"
 
 

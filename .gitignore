@@ -6,9 +6,9 @@ __pycache__/
 .mypy_cache/
 .streamlit/secrets.toml
 
-# Arquivos oficiais do TSE são grandes e não devem ir para o git.
-data/raw/*
-!data/raw/.gitkeep
+# Pacotes nacionais completos passam de 100 MB; o GitHub recusa o envio.
+data/raw/votacao_secao_2026_BR.zip
+data/raw/eleitorado_local_votacao_2026.zip
 
 # Banco e JSON são gerados pelo pipeline.
 data/processed/*
