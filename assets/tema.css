@@ -176,9 +176,9 @@ div[data-testid="stAlert"] p {
 }
 
 .selos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
     align-items: center;
 }
 
@@ -186,9 +186,8 @@ div[data-testid="stAlert"] p {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1 1 220px;
-    min-height: 96px;
-    padding: 0.7rem 0.85rem;
+    min-height: 0;
+    padding: 0.45rem 0.4rem;
     background: #111111;
     border: 1px solid #2a2a2a;
     border-radius: 10px;
@@ -203,9 +202,9 @@ div[data-testid="stAlert"] p {
 
 .selos img {
     display: block;
-    width: auto;
-    max-width: 100%;
-    height: 76px;
+    width: 100%;
+    height: auto;
+    max-height: 88px;
     object-fit: contain;
     transition: filter 0.18s ease;
 }
@@ -219,11 +218,7 @@ div[data-testid="stAlert"] p {
         height: 190px;
     }
 
-    .selos {
-        flex-direction: column;
-    }
-
     .selos img {
-        height: 64px;
+        max-height: 72px;
     }
 }

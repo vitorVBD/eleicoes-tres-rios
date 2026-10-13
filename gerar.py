@@ -141,24 +141,60 @@ def _escrever_pdfs(cidade: str) -> list[tuple[str, Path]]:
     ]
 
 
-def gerar_pdfs(cidade: str) -> list[tuple[str, str, bytes]]:
-    """Gera os três PDFs e devolve o rótulo, o nome do arquivo e o conteúdo."""
+_NOMES_PDF = (
+    ("Apuração", "eleicao_presidencial_2026.pdf", "apuracao"),
+    ("Roteiro", "plano_panfletagem.pdf", "roteiro"),
+    ("Mapa", "mapa.pdf", "mapa"),
+)
+
+
+def _pdf_valido(caminho: Path) -> bool:
+    if not caminho.is_file() or caminho.stat().st_size < 100:
+        return False
+    with caminho.open("rb") as arquivo:
+        return arquivo.read(5) == b"%PDF-"
+
+
+def _caminhos_pdf(cidade: str) -> list[tuple[str, str, Path]]:
     pasta = _pasta(cidade)
-    nomes = {
-        "Apuração": f"{pasta.name}-apuracao.pdf",
-        "Roteiro": f"{pasta.name}-roteiro.pdf",
-        "Mapa": f"{pasta.name}-mapa.pdf",
-    }
     return [
-        (rotulo, nomes[rotulo], caminho.read_bytes())
-        for rotulo, caminho in _escrever_pdfs(cidade)
+        (rotulo, f"{pasta.name}-{sufixo}.pdf", pasta / nome_interno)
+        for rotulo, nome_interno, sufixo in _NOMES_PDF
     ]
 
 
-def _gerar_cidade(cidade: str) -> Path:
+def _pdfs_prontos(cidade: str) -> bool:
+    return all(_pdf_valido(caminho) for _rotulo, _nome, caminho in _caminhos_pdf(cidade))
+
+
+def _ler_pdfs(cidade: str) -> list[tuple[str, str, bytes]] | None:
+    caminhos = _caminhos_pdf(cidade)
+    if not all(_pdf_valido(caminho) for _rotulo, _nome, caminho in caminhos):
+        return None
+    return [(rotulo, nome, caminho.read_bytes()) for rotulo, nome, caminho in caminhos]
+
+
+def gerar_pdfs(cidade: str, recriar: bool = False) -> list[tuple[str, str, bytes]]:
+    """Devolve os três PDFs. Se já existirem, não monta de novo."""
+    if not recriar:
+        prontos = _ler_pdfs(cidade)
+        if prontos is not None:
+            return prontos
+    _escrever_pdfs(cidade)
+    prontos = _ler_pdfs(cidade)
+    if prontos is None:
+        raise ErroPipeline(f"Não consegui gravar os PDFs de {cidade}.")
+    return prontos
+
+
+def _gerar_cidade(cidade: str, recriar: bool = False) -> Path:
     pasta = _pasta(cidade)
-    print(f"Gerando os PDFs de {cidade}...")
-    for rotulo, caminho in _escrever_pdfs(cidade):
+    if not recriar and _pdfs_prontos(cidade):
+        print(f"Os PDFs de {cidade} já estavam prontos.")
+    else:
+        print(f"Gerando os PDFs de {cidade}...")
+        _escrever_pdfs(cidade)
+    for rotulo, _nome, caminho in _caminhos_pdf(cidade):
         print(f"{rotulo}: {caminho}")
     print()
     print("Pronto. Os três PDFs estão nesta pasta:")
@@ -167,7 +203,7 @@ def _gerar_cidade(cidade: str) -> Path:
     return pasta
 
 
-def _perguntar(pares: list[tuple[str, int]], nomes: list[str]) -> int:
+def _perguntar(pares: list[tuple[str, int]], nomes: list[str], recriar: bool = False) -> int:
     print()
     print("Digite o nome da cidade e aperte Enter.")
     print("Exemplo: Nova Iguaçu")
@@ -186,7 +222,7 @@ def _perguntar(pares: list[tuple[str, int]], nomes: list[str]) -> int:
             _imprimir(pares)
             continue
         try:
-            _gerar_cidade(_resolver(pedido, nomes))
+            _gerar_cidade(_resolver(pedido, nomes), recriar=recriar)
         except ErroPipeline as exc:
             print(f"Erro: {exc}")
             continue
@@ -213,8 +249,8 @@ def main() -> int:
             _imprimir(pares)
             return 0
         if not args.cidade:
-            return _perguntar(pares, nomes)
-        _gerar_cidade(_resolver(" ".join(args.cidade), nomes))
+            return _perguntar(pares, nomes, recriar=args.reprocessar)
+        _gerar_cidade(_resolver(" ".join(args.cidade), nomes), recriar=args.reprocessar)
     except ErroPipeline as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 1
